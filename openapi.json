@@ -1,0 +1,59 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Servidor MCP Trello",
+    "description": "API Flask para integração do Trello com ChatGPT (Plus).",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://servidor-mcp-trello.onrender.com"
+    }
+  ],
+  "paths": {
+    "/mcp": {
+      "post": {
+        "summary": "Executa ações MCP (listar quadros, criar cartões).",
+        "operationId": "executarAcaoMCP",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "method": { "type": "string" },
+                  "params": { "type": "object" }
+                },
+                "required": ["method"]
+              },
+              "example": {
+                "method": "list_boards"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resultado da ação MCP.",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Verifica se o servidor está ativo.",
+        "responses": {
+          "200": {
+            "description": "Servidor operacional."
+          }
+        }
+      }
+    }
+  }
+}
