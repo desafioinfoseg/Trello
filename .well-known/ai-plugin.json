@@ -1,0 +1,17 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "Servidor MCP Trello",
+  "name_for_model": "trello_mcp",
+  "description_for_human": "Integra o ChatGPT ao Trello para listar quadros e criar cartões.",
+  "description_for_model": "Permite listar quadros e criar cartões no Trello via método JSON-RPC.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://servidor-mcp-trello.onrender.com/openapi.json"
+  },
+  "logo_url": "https://cdn-icons-png.flaticon.com/512/6124/6124997.png",
+  "contact_email": "desafioinfoseg@gmail.com",
+  "legal_info_url": "https://desafioinfoseg.github.io/"
+}
