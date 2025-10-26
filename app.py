@@ -4,38 +4,38 @@ import requests
 
 app = Flask(__name__)
 
-# Credenciais do Trello via variáveis de ambiente
+# Credenciais do Trello obtidas das variáveis de ambiente
 TRELLO_KEY = os.environ.get("TRELLO_KEY")
 TRELLO_TOKEN = os.environ.get("TRELLO_TOKEN")
 
 @app.route('/mcp', methods=['POST'])
 def mcp_endpoint():
     """
-    Endpoint compatível com o padrão MCP (JSON-RPC).
-    Permite que o ChatGPT Agent interaja com o Trello.
+    Endpoint compatível com o ChatGPT Agent (MCP).
+    Aceita requisições JSON-RPC contendo um campo 'method'.
     """
     data = request.get_json()
+    if not data or "method" not in data:
+        return jsonify({"error": "Formato inválido. Esperado campo 'method'."}), 400
 
-    # Identifica o método solicitado pelo ChatGPT
     method = data.get("method")
     params = data.get("params", {})
 
-    # === LISTAR QUADROS ===
+    # === Listar quadros ===
     if method == "list_boards":
         url = f"https://api.trello.com/1/members/me/boards?key={TRELLO_KEY}&token={TRELLO_TOKEN}"
-        resp = requests.get(url)
-        return jsonify({"result": resp.json()})
+        response = requests.get(url)
+        return jsonify({"result": response.json()}), response.status_code
 
-    # === CRIAR CARTÃO ===
-    if method == "create_card":
-        name = params.get("name", "Novo Cartão")
+    # === Criar cartão ===
+    elif method == "create_card":
         list_id = params.get("list_id")
+        name = params.get("name", "Novo Cartão")
         desc = params.get("desc", "")
-
         if not list_id:
-            return jsonify({"error": "list_id é obrigatório"}), 400
+            return jsonify({"error": "Parâmetro 'list_id' é obrigatório"}), 400
 
-        url = f"https://api.trello.com/1/cards"
+        url = "https://api.trello.com/1/cards"
         payload = {
             "idList": list_id,
             "name": name,
@@ -43,15 +43,18 @@ def mcp_endpoint():
             "key": TRELLO_KEY,
             "token": TRELLO_TOKEN
         }
-        resp = requests.post(url, data=payload)
-        return jsonify({"result": resp.json()})
+        response = requests.post(url, data=payload)
+        return jsonify({"result": response.json()}), response.status_code
 
-    # === MÉTODO DESCONHECIDO ===
-    return jsonify({"error": f"Método '{method}' não suportado"}), 400
+    else:
+        return jsonify({"error": f"Método '{method}' não suportado"}), 400
+
 
 @app.route('/health', methods=['GET'])
-def health_check():
+def health():
+    """Verifica se o servidor está rodando."""
     return "OK", 200
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
