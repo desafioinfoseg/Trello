@@ -4,15 +4,24 @@ import requests
 
 app = Flask(__name__)
 
-# Credenciais do Trello obtidas das variáveis de ambiente
+# === Credenciais do Trello ===
 TRELLO_KEY = os.environ.get("TRELLO_KEY")
 TRELLO_TOKEN = os.environ.get("TRELLO_TOKEN")
 
+# === Função auxiliar ===
+def listar_quadros():
+    """Lista os quadros do Trello do usuário autenticado."""
+    url = f"https://api.trello.com/1/members/me/boards?key={TRELLO_KEY}&token={TRELLO_TOKEN}"
+    response = requests.get(url)
+    return response.json(), response.status_code
+
+
+# === Endpoint MCP (ChatGPT Agent / Manus AI) ===
 @app.route('/mcp', methods=['POST'])
 def mcp_endpoint():
     """
-    Endpoint compatível com o ChatGPT Agent (MCP).
-    Aceita requisições JSON-RPC contendo um campo 'method'.
+    Endpoint padrão compatível com ChatGPT Agent (MCP).
+    Recebe requisições JSON contendo um campo 'method' e, opcionalmente, 'params'.
     """
     data = request.get_json()
     if not data or "method" not in data:
@@ -23,9 +32,8 @@ def mcp_endpoint():
 
     # === Listar quadros ===
     if method == "list_boards":
-        url = f"https://api.trello.com/1/members/me/boards?key={TRELLO_KEY}&token={TRELLO_TOKEN}"
-        response = requests.get(url)
-        return jsonify({"result": response.json()}), response.status_code
+        result, status = listar_quadros()
+        return jsonify({"result": result}), status
 
     # === Criar cartão ===
     elif method == "create_card":
@@ -50,9 +58,24 @@ def mcp_endpoint():
         return jsonify({"error": f"Método '{method}' não suportado"}), 400
 
 
+# === Endpoint alternativo de teste via navegador ===
+@app.route('/trello/resource', methods=['GET'])
+def trello_resource():
+    """
+    Permite testar pelo navegador via GET:
+    https://servidor-mcp-trello.onrender.com/trello/resource?action=list_boards
+    """
+    action = request.args.get("action")
+    if action == "list_boards":
+        result, status = listar_quadros()
+        return jsonify(result), status
+    return jsonify({"error": "Ação não suportada. Use action=list_boards"}), 400
+
+
+# === Health Check ===
 @app.route('/health', methods=['GET'])
 def health():
-    """Verifica se o servidor está rodando."""
+    """Verifica se o servidor está ativo."""
     return "OK", 200
 
 
