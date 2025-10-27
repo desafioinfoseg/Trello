@@ -1,14 +1,41 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory, make_response
 import os
 import requests
 
 app = Flask(__name__)
 
+# ============================================================
+# === CONFIGURAÇÃO DO SERVIDOR MCP (ChatGPT Agent + Trello) ===
+# ============================================================
+
 # === Credenciais do Trello ===
+# (Adicione no Render: Environment → TRELLO_KEY / TRELLO_TOKEN)
 TRELLO_KEY = os.environ.get("TRELLO_KEY")
 TRELLO_TOKEN = os.environ.get("TRELLO_TOKEN")
 
-# === Função auxiliar ===
+# ============================================================
+# === SERVIR MANIFESTO E OPENAPI (necessário para ChatGPT) ===
+# ============================================================
+
+@app.route('/.well-known/ai-plugin.json')
+def serve_manifest():
+    """Fornece o manifesto para o ChatGPT (Actions)"""
+    resp = make_response(send_from_directory('.well-known', 'ai-plugin.json', mimetype='application/json'))
+    resp.headers['Access-Control-Allow-Origin'] = '*'
+    return resp
+
+@app.route('/openapi.json')
+def serve_openapi():
+    """Fornece o arquivo OpenAPI com a descrição dos endpoints"""
+    resp = make_response(send_from_directory('.', 'openapi.json', mimetype='application/json'))
+    resp.headers['Access-Control-Allow-Origin'] = '*'
+    return resp
+
+
+# ============================================================
+# === FUNÇÕES AUXILIARES PARA OPERAÇÕES NO TRELLO ============
+# ============================================================
+
 def listar_quadros():
     """Lista os quadros do Trello do usuário autenticado."""
     url = f"https://api.trello.com/1/members/me/boards?key={TRELLO_KEY}&token={TRELLO_TOKEN}"
@@ -16,12 +43,29 @@ def listar_quadros():
     return response.json(), response.status_code
 
 
-# === Endpoint MCP (ChatGPT Agent / Manus AI) ===
+def criar_cartao(list_id, name, desc=""):
+    """Cria um cartão em uma lista do Trello."""
+    url = "https://api.trello.com/1/cards"
+    payload = {
+        "idList": list_id,
+        "name": name,
+        "desc": desc,
+        "key": TRELLO_KEY,
+        "token": TRELLO_TOKEN
+    }
+    response = requests.post(url, data=payload)
+    return response.json(), response.status_code
+
+
+# ============================================================
+# === ENDPOINT MCP (usado pelo ChatGPT Agent ou Manus AI) ====
+# ============================================================
+
 @app.route('/mcp', methods=['POST'])
 def mcp_endpoint():
     """
     Endpoint padrão compatível com ChatGPT Agent (MCP).
-    Recebe requisições JSON contendo um campo 'method' e, opcionalmente, 'params'.
+    Recebe requisições JSON contendo 'method' e 'params'.
     """
     data = request.get_json()
     if not data or "method" not in data:
@@ -42,27 +86,22 @@ def mcp_endpoint():
         desc = params.get("desc", "")
         if not list_id:
             return jsonify({"error": "Parâmetro 'list_id' é obrigatório"}), 400
+        result, status = criar_cartao(list_id, name, desc)
+        return jsonify({"result": result}), status
 
-        url = "https://api.trello.com/1/cards"
-        payload = {
-            "idList": list_id,
-            "name": name,
-            "desc": desc,
-            "key": TRELLO_KEY,
-            "token": TRELLO_TOKEN
-        }
-        response = requests.post(url, data=payload)
-        return jsonify({"result": response.json()}), response.status_code
-
+    # === Método não suportado ===
     else:
         return jsonify({"error": f"Método '{method}' não suportado"}), 400
 
 
-# === Endpoint alternativo de teste via navegador ===
+# ============================================================
+# === ENDPOINT DE TESTE VIA NAVEGADOR ========================
+# ============================================================
+
 @app.route('/trello/resource', methods=['GET'])
 def trello_resource():
     """
-    Permite testar pelo navegador via GET:
+    Permite testar pelo navegador:
     https://servidor-mcp-trello.onrender.com/trello/resource?action=list_boards
     """
     action = request.args.get("action")
@@ -72,12 +111,19 @@ def trello_resource():
     return jsonify({"error": "Ação não suportada. Use action=list_boards"}), 400
 
 
-# === Health Check ===
+# ============================================================
+# === HEALTH CHECK (para Render e testes) ====================
+# ============================================================
+
 @app.route('/health', methods=['GET'])
 def health():
     """Verifica se o servidor está ativo."""
     return "OK", 200
 
+
+# ============================================================
+# === EXECUÇÃO LOCAL =========================================
+# ============================================================
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
